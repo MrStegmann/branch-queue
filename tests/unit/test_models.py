@@ -27,6 +27,13 @@ def test_service_type_from_string_success():
     assert ServiceType.from_string("3") == ServiceType.ACCOUNT_MANAGEMENT
     # Direct enum pass-through
     assert ServiceType.from_string(ServiceType.DEPOSIT) == ServiceType.DEPOSIT
+    # Spanish aliases normalisation
+    assert ServiceType.from_string("deposito") == ServiceType.DEPOSIT
+    assert ServiceType.from_string("depósito") == ServiceType.DEPOSIT
+    assert ServiceType.from_string("retiro") == ServiceType.WITHDRAWAL
+    assert ServiceType.from_string("gestion_cuenta") == ServiceType.ACCOUNT_MANAGEMENT
+    assert ServiceType.from_string("gestión_cuenta") == ServiceType.ACCOUNT_MANAGEMENT
+    assert ServiceType.from_string("gestion de cuenta") == ServiceType.ACCOUNT_MANAGEMENT
 
 
 def test_service_type_from_string_invalid():

@@ -41,6 +41,21 @@ class ServiceType(str, Enum):
             if cleaned == member.value:
                 return member
 
+        # Check Spanish aliases
+        spanish_map = {
+            "deposito": cls.DEPOSIT,
+            "depósito": cls.DEPOSIT,
+            "retiro": cls.WITHDRAWAL,
+            "gestion_cuenta": cls.ACCOUNT_MANAGEMENT,
+            "gestión_cuenta": cls.ACCOUNT_MANAGEMENT,
+            "gestion_de_cuenta": cls.ACCOUNT_MANAGEMENT,
+            "gestión_de_cuenta": cls.ACCOUNT_MANAGEMENT,
+            "gestion": cls.ACCOUNT_MANAGEMENT,
+            "gestión": cls.ACCOUNT_MANAGEMENT,
+        }
+        if cleaned in spanish_map:
+            return spanish_map[cleaned]
+
         # Check numeric shortcuts
         numeric_map = {
             "1": cls.DEPOSIT,

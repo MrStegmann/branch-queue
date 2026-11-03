@@ -3,7 +3,7 @@
 import sys
 from typing import Optional
 
-from src.exceptions.errors import EmptyClientNameError, InvalidServiceTypeError
+from src.exceptions.errors import EmptyClientNameError, EmptyQueueError, InvalidServiceTypeError
 from src.models.service_type import ServiceType
 from src.services.queue_manager import BranchQueueManager
 
@@ -83,16 +83,16 @@ def handle_call_next(manager: BranchQueueManager) -> None:
         print(f"[ERROR] {e}")
         return
 
-    ticket = manager.call_next(service)
     print("------------------------------------------------------------")
-    if ticket is None:
-        print(f"[INFO] No clients are currently waiting for '{service.display_name()}'.")
-    else:
+    try:
+        ticket = manager.call_next(service)
         print("[DISPATCH] NOW SERVING:")
         print(f"  Ticket Number : #{ticket.number}")
         print(f"  Client Name   : {ticket.client_name}")
         print(f"  Service Line  : {ticket.service_type.display_name()}")
         print(f"  Waiting Since : {ticket.issued_at.strftime('%Y-%m-%d %H:%M:%S')}")
+    except EmptyQueueError:
+        print(f"[INFO] No clients are currently waiting for '{service.display_name()}'.")
     print("------------------------------------------------------------")
 
 
@@ -119,8 +119,8 @@ def handle_peek_next(manager: BranchQueueManager) -> None:
 
 def handle_list_waiting(manager: BranchQueueManager) -> None:
     """Workflow 4: List All Waiting Clients."""
-    stats = manager.get_stats()
-    if stats.total_waiting == 0:
+    stats = manager.stats()
+    if stats["total"] == 0:
         print("[INFO] All branch queues are currently empty.")
         return
 
@@ -129,8 +129,9 @@ def handle_list_waiting(manager: BranchQueueManager) -> None:
     print("============================================================")
 
     service_order = [ServiceType.DEPOSIT, ServiceType.WITHDRAWAL, ServiceType.ACCOUNT_MANAGEMENT]
+    waiting_by_service = manager.list_waiting()
     for s in service_order:
-        queue_items = manager.list_waiting(s)
+        queue_items = waiting_by_service.get(s.value, [])
         service_label = s.display_name().upper()
         print(f"[{service_label}] ({len(queue_items)} waiting)")
         if queue_items:
@@ -141,7 +142,7 @@ def handle_list_waiting(manager: BranchQueueManager) -> None:
         print()
 
     print("============================================================")
-    print(f"Total Active Waiting Clients: {stats.total_waiting}")
+    print(f"Total Active Waiting Clients: {stats['total']}")
     print("============================================================")
 
 
