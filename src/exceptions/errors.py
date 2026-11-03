@@ -24,3 +24,9 @@ class EmptyClientNameError(ValidationError):
 class QueueOperationError(BranchQueueError):
     """Raised when an illegal or failing queue operation occurs."""
     pass
+
+
+class EmptyQueueError(QueueOperationError):
+    """Raised when attempting to dequeue or dispatch from an empty service queue."""
+    pass
+

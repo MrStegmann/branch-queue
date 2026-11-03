@@ -3,6 +3,7 @@
 from src.exceptions.errors import (
     BranchQueueError,
     EmptyClientNameError,
+    EmptyQueueError,
     InvalidServiceTypeError,
     QueueOperationError,
     ValidationError,
@@ -14,4 +15,5 @@ __all__ = [
     "InvalidServiceTypeError",
     "EmptyClientNameError",
     "QueueOperationError",
+    "EmptyQueueError",
 ]
