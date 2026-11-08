@@ -5,6 +5,8 @@ import threading
 
 from src.models.service_type import ServiceType
 from src.services.queue_manager import BranchQueueManager
+from src.exceptions.errors import EmptyQueueError
+import pytest
 
 
 def test_concurrent_ticket_issuance_uniqueness():
@@ -45,8 +47,9 @@ def test_concurrent_dispatch_no_double_servicing():
 
     def teller_worker():
         while True:
-            t = manager.call_next(ServiceType.DEPOSIT)
-            if t is None:
+            try:
+                t = manager.call_next(ServiceType.DEPOSIT)
+            except EmptyQueueError:
                 break
             with lock:
                 dispatched.append(t)
@@ -61,4 +64,5 @@ def test_concurrent_dispatch_no_double_servicing():
     # No duplicate tickets served
     assert len(set(dispatched_numbers)) == tickets_to_issue
     # Queue is now completely empty
-    assert manager.call_next(ServiceType.DEPOSIT) is None
+    with pytest.raises(EmptyQueueError):
+        manager.call_next(ServiceType.DEPOSIT)

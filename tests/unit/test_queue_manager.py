@@ -5,7 +5,7 @@ import pytest
 
 from src.services.queue_manager import BranchQueueManager
 from src.models.service_type import ServiceType
-from src.exceptions.errors import EmptyClientNameError, InvalidServiceTypeError
+from src.exceptions.errors import EmptyClientNameError, EmptyQueueError, InvalidServiceTypeError
 
 
 # --- Phase 3 / US1 Tests ---
@@ -122,8 +122,9 @@ def test_call_next_fifo_order(mock_time_provider):
     called3 = manager.call_next(ServiceType.DEPOSIT)
     assert called3 == t3
 
-    # Empty queue returns None safely
-    assert manager.call_next(ServiceType.DEPOSIT) is None
+    # Empty queue raises EmptyQueueError
+    with pytest.raises(EmptyQueueError):
+        manager.call_next(ServiceType.DEPOSIT)
 
 
 def test_call_next_queue_isolation(mock_time_provider):
@@ -136,19 +137,23 @@ def test_call_next_queue_isolation(mock_time_provider):
     called_wd = manager.call_next(ServiceType.WITHDRAWAL)
     assert called_wd == t_wd
 
-    # Calling withdrawal again should be empty
-    assert manager.call_next(ServiceType.WITHDRAWAL) is None
+    # Calling withdrawal again should raise EmptyQueueError
+    with pytest.raises(EmptyQueueError):
+        manager.call_next(ServiceType.WITHDRAWAL)
 
     # Deposit and Account Management are untouched
     assert manager.call_next(ServiceType.DEPOSIT) == t_dep
     assert manager.call_next(ServiceType.ACCOUNT_MANAGEMENT) == t_acct
 
 
-def test_call_next_empty_queue_returns_none(mock_time_provider):
+def test_call_next_empty_queue_raises_error(mock_time_provider):
     manager = BranchQueueManager(time_provider=mock_time_provider)
-    assert manager.call_next(ServiceType.DEPOSIT) is None
-    assert manager.call_next("withdrawal") is None
-    assert manager.call_next("account_management") is None
+    with pytest.raises(EmptyQueueError):
+        manager.call_next(ServiceType.DEPOSIT)
+    with pytest.raises(EmptyQueueError):
+        manager.call_next("withdrawal")
+    with pytest.raises(EmptyQueueError):
+        manager.call_next("account_management")
 
 
 def test_call_next_invalid_service_raises_error(mock_time_provider):
@@ -176,7 +181,8 @@ def test_peek_next_non_mutating(mock_time_provider):
     # Verify queue was not mutated: call_next still yields Alice first, then Bob
     assert manager.call_next(ServiceType.DEPOSIT) == t1
     assert manager.call_next(ServiceType.DEPOSIT) == t2
-    assert manager.call_next(ServiceType.DEPOSIT) is None
+    with pytest.raises(EmptyQueueError):
+        manager.call_next(ServiceType.DEPOSIT)
 
 
 def test_peek_next_empty_queue_returns_none(mock_time_provider):
@@ -198,15 +204,15 @@ def test_list_waiting_specific_service(mock_time_provider):
     manager.issue_ticket("Bob", ServiceType.WITHDRAWAL)
     t3 = manager.issue_ticket("Charlie", ServiceType.DEPOSIT)
 
-    deposit_list = manager.list_waiting(ServiceType.DEPOSIT)
-    assert deposit_list == [t1, t3]
+    deposit_dict = manager.list_waiting(ServiceType.DEPOSIT)
+    assert deposit_dict == {"deposito": [t1, t3]}
 
     # Modifying returned list does not affect internal queue
-    deposit_list.pop()
-    assert len(manager.list_waiting(ServiceType.DEPOSIT)) == 2
+    deposit_dict["deposito"].pop()
+    assert len(manager.list_waiting(ServiceType.DEPOSIT)["deposito"]) == 2
 
 
-def test_list_waiting_all_services_in_arrival_order(mock_time_provider):
+def test_list_waiting_all_services(mock_time_provider):
     manager = BranchQueueManager(time_provider=mock_time_provider)
     t1 = manager.issue_ticket("Alice", ServiceType.DEPOSIT)
     t2 = manager.issue_ticket("Bob", ServiceType.WITHDRAWAL)
@@ -214,12 +220,20 @@ def test_list_waiting_all_services_in_arrival_order(mock_time_provider):
     t4 = manager.issue_ticket("Diana", ServiceType.ACCOUNT_MANAGEMENT)
 
     all_waiting = manager.list_waiting()
-    assert all_waiting == [t1, t2, t3, t4]
+    assert all_waiting == {
+        "deposito": [t1, t3],
+        "retiro": [t2],
+        "gestion_cuenta": [t4],
+    }
 
-    # Verify empty list returned when queues are empty
+    # Verify empty dict returned when queues are empty
     empty_manager = BranchQueueManager(time_provider=mock_time_provider)
-    assert empty_manager.list_waiting() == []
-    assert empty_manager.list_waiting(ServiceType.DEPOSIT) == []
+    assert empty_manager.list_waiting() == {
+        "deposito": [],
+        "retiro": [],
+        "gestion_cuenta": [],
+    }
+    assert empty_manager.list_waiting(ServiceType.DEPOSIT) == {"deposito": []}
 
 
 def test_list_waiting_invalid_service_raises_error(mock_time_provider):
@@ -260,5 +274,64 @@ def test_get_stats_populated_queues(mock_time_provider, fixed_now: datetime):
     updated_stats = manager.get_stats()
     assert updated_stats.total_waiting == 2
     assert updated_stats.counts_by_service[ServiceType.DEPOSIT] == 1
+
+
+def test_stats_method_with_total_and_services(mock_time_provider):
+    manager = BranchQueueManager(time_provider=mock_time_provider)
+    assert manager.stats() == {
+        "deposito": 0,
+        "retiro": 0,
+        "gestion_cuenta": 0,
+        "total": 0,
+    }
+
+    manager.issue_ticket("Alice", "deposit")
+    manager.issue_ticket("Bob", "deposit")
+    manager.issue_ticket("Charlie", "withdrawal")
+
+    assert manager.stats() == {
+        "deposito": 2,
+        "retiro": 1,
+        "gestion_cuenta": 0,
+        "total": 3,
+    }
+
+    # Calling next decrements specific service and total count
+    manager.call_next("deposit")
+    assert manager.stats() == {
+        "deposito": 1,
+        "retiro": 1,
+        "gestion_cuenta": 0,
+        "total": 2,
+    }
+
+
+def test_service_type_keyword_arguments(mock_time_provider):
+    """Test that service_type keyword arguments are supported across all public manager methods."""
+    manager = BranchQueueManager(time_provider=mock_time_provider)
+
+    t1 = manager.issue_ticket(client_name="Alice", service_type="deposito")
+    assert t1.number == 1
+    assert t1.service_type == ServiceType.DEPOSIT
+
+    t2 = manager.issue_ticket(client_name="Bob", service_type=ServiceType.WITHDRAWAL)
+    assert t2.number == 2
+    assert t2.service_type == ServiceType.WITHDRAWAL
+
+    # peek_next with keyword
+    assert manager.peek_next(service_type="deposito") == t1
+    assert manager.peek_next(service_type=ServiceType.WITHDRAWAL) == t2
+
+    # list_waiting with keyword
+    assert manager.list_waiting(service_type="deposito") == {"deposito": [t1]}
+    assert manager.list_waiting(service_type=ServiceType.WITHDRAWAL) == {"retiro": [t2]}
+
+    # call_next with keyword
+    assert manager.call_next(service_type="deposito") == t1
+    assert manager.call_next(service_type=ServiceType.WITHDRAWAL) == t2
+    with pytest.raises(EmptyQueueError):
+        manager.call_next(service_type="deposito")
+
+
 
 
