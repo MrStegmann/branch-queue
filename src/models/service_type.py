@@ -8,9 +8,14 @@ from src.exceptions.errors import InvalidServiceTypeError
 class ServiceType(str, Enum):
     """Enumeration of supported banking service categories."""
 
-    DEPOSIT = "deposit"
-    WITHDRAWAL = "withdrawal"
-    ACCOUNT_MANAGEMENT = "account_management"
+    DEPOSIT = "deposito"
+    WITHDRAWAL = "retiro"
+    ACCOUNT_MANAGEMENT = "gestion_cuenta"
+
+    # Spanish aliases for attribute access
+    DEPOSITO = "deposito"
+    RETIRO = "retiro"
+    GESTION_CUENTA = "gestion_cuenta"
 
     @classmethod
     def from_string(cls, value: Union[str, "ServiceType"]) -> "ServiceType":
@@ -19,9 +24,11 @@ class ServiceType(str, Enum):
 
         Supports:
         - Direct enum instances
-        - Case-insensitive string matching ('deposit', 'DEPOSIT', 'Deposit')
-        - Space/underscore normalization ('account management', 'account_management')
-        - Numeric shortcuts ('1' -> deposit, '2' -> withdrawal, '3' -> account_management)
+        - Canonical Spanish values ('deposito', 'retiro', 'gestion_cuenta')
+        - Spanish accented variants ('depósito', 'gestión_cuenta', 'gestión de cuenta')
+        - English aliases ('deposit', 'withdrawal', 'account_management', 'account management')
+        - Space/underscore normalization
+        - Numeric shortcuts ('1' -> DEPOSIT, '2' -> WITHDRAWAL, '3' -> ACCOUNT_MANAGEMENT)
 
         Raises:
             InvalidServiceTypeError: If the value cannot be resolved to a valid ServiceType.
@@ -36,13 +43,18 @@ class ServiceType(str, Enum):
 
         cleaned = value.strip().lower().replace(" ", "_")
 
-        # Check direct value match
+        # Check direct value match against canonical values
         for member in cls:
             if cleaned == member.value:
                 return member
 
-        # Check Spanish aliases
-        spanish_map = {
+        # Check aliases map (English, Spanish accents, shortcuts)
+        aliases_map = {
+            # English aliases
+            "deposit": cls.DEPOSIT,
+            "withdrawal": cls.WITHDRAWAL,
+            "account_management": cls.ACCOUNT_MANAGEMENT,
+            # Spanish aliases / accents
             "deposito": cls.DEPOSIT,
             "depósito": cls.DEPOSIT,
             "retiro": cls.WITHDRAWAL,
@@ -52,18 +64,13 @@ class ServiceType(str, Enum):
             "gestión_de_cuenta": cls.ACCOUNT_MANAGEMENT,
             "gestion": cls.ACCOUNT_MANAGEMENT,
             "gestión": cls.ACCOUNT_MANAGEMENT,
-        }
-        if cleaned in spanish_map:
-            return spanish_map[cleaned]
-
-        # Check numeric shortcuts
-        numeric_map = {
+            # Numeric shortcuts
             "1": cls.DEPOSIT,
             "2": cls.WITHDRAWAL,
             "3": cls.ACCOUNT_MANAGEMENT,
         }
-        if cleaned in numeric_map:
-            return numeric_map[cleaned]
+        if cleaned in aliases_map:
+            return aliases_map[cleaned]
 
         valid_options = ", ".join(f"'{m.value}'" for m in cls)
         raise InvalidServiceTypeError(

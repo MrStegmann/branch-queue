@@ -205,11 +205,11 @@ def test_list_waiting_specific_service(mock_time_provider):
     t3 = manager.issue_ticket("Charlie", ServiceType.DEPOSIT)
 
     deposit_dict = manager.list_waiting(ServiceType.DEPOSIT)
-    assert deposit_dict == {"deposit": [t1, t3]}
+    assert deposit_dict == {"deposito": [t1, t3]}
 
     # Modifying returned list does not affect internal queue
-    deposit_dict["deposit"].pop()
-    assert len(manager.list_waiting(ServiceType.DEPOSIT)["deposit"]) == 2
+    deposit_dict["deposito"].pop()
+    assert len(manager.list_waiting(ServiceType.DEPOSIT)["deposito"]) == 2
 
 
 def test_list_waiting_all_services(mock_time_provider):
@@ -221,19 +221,19 @@ def test_list_waiting_all_services(mock_time_provider):
 
     all_waiting = manager.list_waiting()
     assert all_waiting == {
-        "deposit": [t1, t3],
-        "withdrawal": [t2],
-        "account_management": [t4],
+        "deposito": [t1, t3],
+        "retiro": [t2],
+        "gestion_cuenta": [t4],
     }
 
     # Verify empty dict returned when queues are empty
     empty_manager = BranchQueueManager(time_provider=mock_time_provider)
     assert empty_manager.list_waiting() == {
-        "deposit": [],
-        "withdrawal": [],
-        "account_management": [],
+        "deposito": [],
+        "retiro": [],
+        "gestion_cuenta": [],
     }
-    assert empty_manager.list_waiting(ServiceType.DEPOSIT) == {"deposit": []}
+    assert empty_manager.list_waiting(ServiceType.DEPOSIT) == {"deposito": []}
 
 
 def test_list_waiting_invalid_service_raises_error(mock_time_provider):
@@ -279,9 +279,9 @@ def test_get_stats_populated_queues(mock_time_provider, fixed_now: datetime):
 def test_stats_method_with_total_and_services(mock_time_provider):
     manager = BranchQueueManager(time_provider=mock_time_provider)
     assert manager.stats() == {
-        "deposit": 0,
-        "withdrawal": 0,
-        "account_management": 0,
+        "deposito": 0,
+        "retiro": 0,
+        "gestion_cuenta": 0,
         "total": 0,
     }
 
@@ -290,20 +290,48 @@ def test_stats_method_with_total_and_services(mock_time_provider):
     manager.issue_ticket("Charlie", "withdrawal")
 
     assert manager.stats() == {
-        "deposit": 2,
-        "withdrawal": 1,
-        "account_management": 0,
+        "deposito": 2,
+        "retiro": 1,
+        "gestion_cuenta": 0,
         "total": 3,
     }
 
     # Calling next decrements specific service and total count
     manager.call_next("deposit")
     assert manager.stats() == {
-        "deposit": 1,
-        "withdrawal": 1,
-        "account_management": 0,
+        "deposito": 1,
+        "retiro": 1,
+        "gestion_cuenta": 0,
         "total": 2,
     }
+
+
+def test_service_type_keyword_arguments(mock_time_provider):
+    """Test that service_type keyword arguments are supported across all public manager methods."""
+    manager = BranchQueueManager(time_provider=mock_time_provider)
+
+    t1 = manager.issue_ticket(client_name="Alice", service_type="deposito")
+    assert t1.number == 1
+    assert t1.service_type == ServiceType.DEPOSIT
+
+    t2 = manager.issue_ticket(client_name="Bob", service_type=ServiceType.WITHDRAWAL)
+    assert t2.number == 2
+    assert t2.service_type == ServiceType.WITHDRAWAL
+
+    # peek_next with keyword
+    assert manager.peek_next(service_type="deposito") == t1
+    assert manager.peek_next(service_type=ServiceType.WITHDRAWAL) == t2
+
+    # list_waiting with keyword
+    assert manager.list_waiting(service_type="deposito") == {"deposito": [t1]}
+    assert manager.list_waiting(service_type=ServiceType.WITHDRAWAL) == {"retiro": [t2]}
+
+    # call_next with keyword
+    assert manager.call_next(service_type="deposito") == t1
+    assert manager.call_next(service_type=ServiceType.WITHDRAWAL) == t2
+    with pytest.raises(EmptyQueueError):
+        manager.call_next(service_type="deposito")
+
 
 
 

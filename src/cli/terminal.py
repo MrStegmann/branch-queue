@@ -19,21 +19,21 @@ BANNER = """============================================================
 ============================================================"""
 
 SERVICES_MENU = """Available Services:
-  1. deposit
-  2. withdrawal
-  3. account_management
+  1. deposito
+  2. retiro
+  3. gestion_cuenta
 Select service type (enter number or name): """
 
 DISPATCH_MENU = """Select service line to dispatch:
-  1. deposit
-  2. withdrawal
-  3. account_management
+  1. deposito
+  2. retiro
+  3. gestion_cuenta
 Select service (number or name): """
 
 PEEK_MENU = """Select service line to peek:
-  1. deposit
-  2. withdrawal
-  3. account_management
+  1. deposito
+  2. retiro
+  3. gestion_cuenta
 Select service (number or name): """
 
 
@@ -44,7 +44,7 @@ def prompt_service_selection(prompt_text: str) -> ServiceType:
         return ServiceType.from_string(raw)
     except InvalidServiceTypeError:
         raise InvalidServiceTypeError(
-            f"Invalid service type '{raw}'. Must be 'deposit', 'withdrawal', or 'account_management'."
+            f"Invalid service type '{raw}'. Must be 'deposito', 'retiro', or 'gestion_cuenta'."
         )
 
 

@@ -9,9 +9,12 @@ from src.exceptions.errors import EmptyClientNameError, InvalidServiceTypeError,
 
 
 def test_service_type_enum_values():
-    assert ServiceType.DEPOSIT == "deposit"
-    assert ServiceType.WITHDRAWAL == "withdrawal"
-    assert ServiceType.ACCOUNT_MANAGEMENT == "account_management"
+    assert ServiceType.DEPOSIT == "deposito"
+    assert ServiceType.WITHDRAWAL == "retiro"
+    assert ServiceType.ACCOUNT_MANAGEMENT == "gestion_cuenta"
+    assert ServiceType.DEPOSITO == "deposito"
+    assert ServiceType.RETIRO == "retiro"
+    assert ServiceType.GESTION_CUENTA == "gestion_cuenta"
 
 
 def test_service_type_from_string_success():
